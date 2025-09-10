@@ -1,0 +1,68 @@
+<!-- Title and Logo -->
+<div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 24px;">
+  <img src="logo.svg" alt="School Logo" width="120" height="120" style="margin-bottom: 12px;" />
+  <h1 style="margin: 0;">Pierre Marie Curie Physics 9 – Solving Kinematic Problems</h1>
+</div>
+
+<!-- Subtitle and Scenario -->
+<div style="text-align: center; margin-bottom: 24px;">
+  <h2>A-380 Take-Off Roll</h2>
+  <p>An Airbus A-380 is lined up with the runway and is about to take off.<br>
+     Take-off velocity: <strong>280 km/h</strong><br>
+     Acceleration: <strong>1 m/s²</strong><br>
+     Calculate how long it takes to reach take-off speed.</p>
+
+  <label for="studentTime">Your answer (seconds):</label>
+  <input type="number" id="studentTime" step="0.1" style="width: 100px;" />
+  <button onclick="simulateTakeoff()">Submit</button>
+
+  <div id="takeoffResult" style="margin-top: 16px; font-weight: bold;"></div>
+</div>
+
+<!-- Runway Animation Area -->
+<div id="runwayContainer" style="position: relative; height: 100px; background: linear-gradient(to right, #ccc 0%, #eee 100%); overflow: hidden; border: 1px solid #999; border-radius: 8px;">
+  <div id="plane" style="position: absolute; top: 30px; left: 0; font-size: 2em;">✈️</div>
+</div>
+
+<script>
+function simulateTakeoff() {
+  const input = parseFloat(document.getElementById('studentTime').value);
+  const correctTime = 77.78;
+  const result = document.getElementById('takeoffResult');
+  const plane = document.getElementById('plane');
+  const runway = document.getElementById('runwayContainer');
+
+  result.textContent = '';
+  plane.style.left = '0px';
+  plane.textContent = '✈️';
+
+  if (isNaN(input)) {
+    result.textContent = "Please enter a valid number.";
+    return;
+  }
+
+  let outcome;
+  if (input < correctTime * 0.9) {
+    outcome = { text: "Too short! The plane stalls and crashes.", emoji: "🔥💥✈️", color: "#fdd" };
+  } else if (input > correctTime * 1.1) {
+    outcome = { text: "Too long! The plane overruns the runway.", emoji: "✈️💨💨💥", color: "#fdd" };
+  } else {
+    outcome = { text: "Perfect! The plane lifts off smoothly!", emoji: "✈️🎉👏", color: "#dfd" };
+  }
+
+  result.textContent = outcome.text;
+  runway.style.background = outcome.color;
+
+  // Animate plane across runway
+  let pos = 0;
+  const max = runway.offsetWidth - 60;
+  const interval = setInterval(() => {
+    pos += 5;
+    plane.style.left = pos + 'px';
+    if (pos >= max) {
+      clearInterval(interval);
+      plane.textContent = outcome.emoji;
+    }
+  }, 30);
+}
+</script>
