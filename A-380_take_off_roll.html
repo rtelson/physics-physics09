@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Pierre Marie Curie Physics 9 – A-380 Take-Off Roll</title>
+  <title>Pierre Marie Curie Physics 9 – Prof. Telson</title>
   <style>
     body {
       margin: 0;
@@ -10,6 +10,7 @@
       font-family: Arial, sans-serif;
       background: #f5f5f5;
       color: #333;
+      overflow-x: hidden;
     }
     .header {
       display: flex;
@@ -28,35 +29,26 @@
     }
     .scenario {
       text-align: center;
-      margin-bottom: 24px;
-    }
-    .scenario h2 {
-      margin: 0 0 12px;
-      font-size: 1.4em;
+      margin-bottom: 8px;
     }
     .scenario p {
-      margin: 0 0 16px;
-      max-width: 600px;
+      margin: 0 0 4px;
       line-height: 1.4;
     }
-    .scenario input {
-      width: 100px;
-      padding: 4px;
-      font-size: 0.9em;
-    }
-    .scenario button {
-      padding: 6px 12px;
-      font-size: 0.9em;
-      margin-left: 8px;
+    #speedDisplay {
+      text-align: center;
+      margin-bottom: 16px;
+      font-weight: bold;
     }
     #takeoffResult {
       text-align: center;
       font-weight: bold;
-      margin-bottom: 16px;
+      margin-top: 16px;
     }
     #runway {
       display: block;
-      margin: 0 auto;
+      width: 100%;
+      height: 300px;
       border: 1px solid #999;
       background: #eee;
       border-radius: 8px;
@@ -65,132 +57,274 @@
 </head>
 <body>
 
-  <!-- Logo & Title -->
+  <!-- Header -->
   <div class="header">
     <img src="logo.svg" alt="School Logo" />
-    <h1>Pierre Marie Curie Physics 9 – Solving Kinematic Problems</h1>
+    <h1 style="margin: 0;">Pierre Marie Curie Physics 9 – Prof. Telson</h1>
   </div>
 
-  <!-- Scenario & Input -->
+  <!-- Scenario & Inputs -->
   <div class="scenario">
     <h2>A-380 Take-Off Roll</h2>
-    <p>
-      An Airbus A-380 is lined up on a <strong>5 000 m</strong> runway and is about to take off.<br>
-      Take-off speed: <strong>280 km/h</strong><br>
-      Acceleration: <strong>1 m/s²</strong><br>
-      Calculate how long it takes to reach take-off speed.
-    </p>
-    <label for="studentTime">Your answer (seconds):</label>
-    <input type="number" id="studentTime" step="0.1" />
+    <p>Runway length: <strong>4 600 m</strong></p>
+    <p>Take-off speed: <strong>290 km/h</strong></p>
+    <p>Acceleration (roll): <strong>1 m/s²</strong></p>
+    <p>Acceleration (flight): <strong>2 m/s²</strong></p>
+  </div>
+
+  <!-- Dynamic speed -->
+  <div id="speedDisplay">Current speed: 0.0 m/s</div>
+
+  <div class="scenario">
+    <label for="studentTime">Your answer (s):</label>
+    <input type="number" id="studentTime" step="0.1" style="width:80px" />
     <button onclick="simulateTakeoff()">Submit</button>
   </div>
 
   <!-- Outcome -->
   <div id="takeoffResult"></div>
 
-  <!-- Hidden plane sprite -->
-  <img id="planeSprite" src="a380-side.png" alt="A-380 Side View" style="display:none" />
-
-  <!-- Runway canvas -->
-  <canvas id="runway" width="1200" height="250"></canvas>
+  <!--x  Canvas -->
+  <canvas id="runway" height="300"></canvas>
 
   <script>
-    const canvas       = document.getElementById('runway');
-    const ctx          = canvas.getContext('2d');
-    const runwayY      = canvas.height / 2;
-    const planeImg     = document.getElementById('planeSprite');
+    const canvas     = document.getElementById('runway');
+    const ctx        = canvas.getContext('2d');
+    let studentTime  = 0;
+    let startTS      = null;
 
-    // Physics parameters
-    const vKmh         = 280;
-    const vMs          = vKmh * 1000 / 3600;    // ≈77.78 m/s
-    const a            = 1;                    // m/s²
-    const correctTime  = vMs / a;              // ≈77.78 s
-    const runwayLength = 5000;                 // m
+    // Constants
+    const vKmh        = 290;
+    const vMs         = vKmh * 1000 / 3600;   // ≈80.56 m/s
+    const a1          = 1;                    // roll accel
+    const a2          = 2;                    // flight accel
+    const correctTime = vMs / a1;             // ≈80.56 s
+    const runwayLen   = 4600;                 // m
+    const rotDur      = 15;                   // s to rotate 45°
+    const flightDur   = 9;                    // s after lift-off
+    const spinRate    = 2 * Math.PI;          // rad/s tumble
 
-    let studentTime = 0;
-    let startTime   = null;
+    function resizeCanvas() {
+      canvas.width = canvas.clientWidth;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
 
-    function drawRunway() {
-      ctx.fillStyle = '#444';
-      ctx.fillRect(0, runwayY - 12, canvas.width, 24);
-
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 4;
-      ctx.setLineDash([40, 30]);
-      ctx.beginPath();
-      ctx.moveTo(0, runwayY);
-      ctx.lineTo(canvas.width, runwayY);
-      ctx.stroke();
-      ctx.setLineDash([]);
+    function drawTaxiways() {
+      const yMid      = canvas.height / 2;
+      const offset    = 80;
+      const thickness = 16;
+      ctx.fillStyle   = '#666';
+      // upper taxiway
+      ctx.fillRect(0, yMid - offset - thickness/2,
+                   canvas.width, thickness);
+      // lower taxiway
+      ctx.fillRect(0, yMid + offset - thickness/2,
+                   canvas.width, thickness);
+      // center connector
+      ctx.fillRect(
+        canvas.width/2 - thickness/2,
+        yMid - offset - thickness/2,
+        thickness,
+        2*offset + thickness
+      );
     }
 
-    function drawPlane(x, lifting) {
-      const w = planeImg.width;
-      const h = planeImg.height;
-      ctx.save();
-      const cx = x + w / 2;
-      const cy = runwayY - h / 2;
-      ctx.translate(cx, cy);
-      if (lifting) ctx.rotate(-Math.PI / 18);  // ~10° nose-up
-      ctx.translate(-cx, -cy);
-      ctx.drawImage(planeImg, x, runwayY - h);
-      ctx.restore();
+
+    function drawRunwayMarkings() {
+      const yMid      = canvas.height / 2;
+      const stripeW   = 8;
+      const stripeH   = 20;
+      const gap       = 12;
+      const count     = 8;
+      // shift 25% + ~200px to the right
+      const baseX     = 20;
+      ctx.fillStyle   = 'white';
+      for (let i = 0; i < count; i++) {
+        ctx.fillRect(
+          baseX + i * (stripeW + gap),
+          yMid - stripeH/2,
+          stripeW,
+          stripeH
+        );
+      }
+      ctx.fillStyle = 'white';
+      ctx.font       = '24px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(
+        '09',
+        baseX + (count * (stripeW + gap)) / 2,
+        yMid - 30
+      );
     }
 
-    function drawHUD(t, dist) {
-      ctx.fillStyle = '#000';
-      ctx.font = '16px Arial';
-      ctx.fillText(`t: ${t.toFixed(1)} s`, 10, 20);
-      ctx.fillText(`v: ${(a * t).toFixed(1)} m/s`, 10, 40);
-      ctx.fillText(`d: ${dist.toFixed(1)} m`, 10, 60);
-    }
-
-    function showOutcome(t, dist) {
-      const div = document.getElementById('takeoffResult');
-      if (t < correctTime * 0.9) {
-        div.textContent = 'Too short! The plane stalls and crashes 🔥';
-      } else if (t > correctTime * 1.1 || dist > runwayLength) {
-        div.textContent = 'Too long! The plane overruns the runway 💥';
-      } else {
-        div.textContent = 'Perfect! The plane lifts off smoothly 🎉';
+    function drawVASILights() {
+      const yMid     = canvas.height / 2;
+      const size     = 12;
+      const x        = 100;
+      const offsets  = [-20, -8, 8, 20];
+      const colors   = ['white','white','red','red'];
+      for (let i = 0; i < 4; i++) {
+        ctx.fillStyle = colors[i];
+        ctx.fillRect(
+          x,
+          yMid + offsets[i] - size/2,
+          size,
+          size
+        );
+        ctx.strokeStyle = '#000';
+        ctx.strokeRect(
+          x,
+          yMid + offsets[i] - size/2,
+          size,
+          size
+        );
       }
     }
 
-    function animate(now) {
-      if (!startTime) startTime = now;
-      const t    = (now - startTime) / 1000;      // seconds
-      const dist = 0.5 * a * t * t;               // meters
-      let x      = (dist / runwayLength) * (canvas.width - planeImg.width);
-      x = Math.max(0, Math.min(x, canvas.width - planeImg.width));
+    function drawRunway() {
+      const yMid = canvas.height / 2;
+      // base strip
+      ctx.fillStyle = '#444';
+      ctx.fillRect(0, yMid - 12,
+                   canvas.width, 24);
+      // centerline
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth   = 4;
+      ctx.setLineDash([40,30]);
+      ctx.beginPath();
+      ctx.moveTo(0, yMid);
+      ctx.lineTo(canvas.width, yMid);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      drawRunwayMarkings();
+      drawVASILights();
+    }
+
+    function drawPlane(x, y, angle, onFire) {
+      const size = 30;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+      ctx.beginPath();
+      ctx.moveTo(-size, -size/2);
+      ctx.lineTo( size,    0);
+      ctx.lineTo(-size,  size/2);
+      ctx.closePath();
+      ctx.fillStyle = 'blue';
+      ctx.fill();
+      if (onFire) {
+        for (let i = 0; i < 5; i++) {
+          ctx.fillStyle = i % 2 ? 'orange' : 'red';
+          ctx.beginPath();
+          ctx.arc(
+            -size - i*6,
+            i*3,
+            size - i*2,
+            0,
+            2*Math.PI
+          );
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+    }
+
+    function drawHUD(t, v, dist) {
+      ctx.fillStyle = '#000';
+      ctx.font       = '16px Arial';
+      ctx.fillText(`t: ${t.toFixed(1)} s`,    202, 20);
+      ctx.fillText(`v: ${v.toFixed(1)} m/s`,   202, 40);
+      ctx.fillText(`d: ${dist.toFixed(1)} m`,  202, 60);
+    }
+
+    function showOutcome() {
+      const out = document.getElementById('takeoffResult');
+      if (studentTime < correctTime*0.9 ||
+          studentTime > correctTime*1.1
+      ) {
+        out.textContent = 'Incorrect time—🔥';
+      } else {
+        out.textContent = 'Perfect lift-off 🎉';
+      }
+    }
+
+    function animate(ts) {
+      if (!startTS) startTS = ts;
+      const tTotal = (ts - startTS) / 1000;
+      const yMid   = canvas.height / 2;
+      const pxPerM = canvas.width / runwayLen;
+
+      // Roll phase
+      const tRoll   = Math.min(tTotal, studentTime);
+      const dist1   = 0.5 * a1 * tRoll * tRoll;
+      const vRoll   = a1 * tRoll;
+      const xRollPx = dist1 * pxPerM;
+
+      if (tTotal <= studentTime) {
+        document.getElementById('speedDisplay').textContent =
+          `Current speed: ${vRoll.toFixed(1)} m/s`;
+      }
+
+      let x      = xRollPx;
+      let y      = yMid;
+      let v      = vRoll;
+      let dist   = dist1;
+      let angle  = 0;
+      let onFire = false;
+
+      // Flight or tumble
+      if (tTotal > studentTime) {
+        const tFlight = tTotal - studentTime;
+        const fails   = (studentTime < correctTime*0.9 ||
+                         studentTime > correctTime*1.1);
+        if (fails) {
+          // tumble on runway
+          angle  = tFlight * spinRate;
+          onFire = true;
+        } else {
+          // smooth climb
+          const alpha = Math.min(tFlight / rotDur, 1);
+          angle = -alpha * Math.PI / 4;
+          const dist2 = vRoll*tFlight + 0.5*a2*tFlight*tFlight;
+          const v2    = vRoll + a2*tFlight;
+          x = xRollPx +
+              dist2 * pxPerM * Math.cos(Math.PI / 4);
+          y = yMid -
+              dist2 * pxPerM * Math.sin(Math.PI / 4);
+          v = v2;
+          dist = dist1 + dist2;
+        }
+        document.getElementById('speedDisplay').textContent = '';
+      }
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawTaxiways();
       drawRunway();
-      drawPlane(x, a * t >= vMs);
-      drawHUD(t, dist);
+      drawPlane(x, y, angle, onFire);
+      drawHUD(tTotal, v, dist);
 
-      if (t < studentTime && dist < runwayLength * 1.2) {
+      if (tTotal < studentTime + flightDur) {
         requestAnimationFrame(animate);
       } else {
-        showOutcome(t, dist);
+        showOutcome();
       }
     }
 
     function simulateTakeoff() {
-      const input = parseFloat(document.getElementById('studentTime').value);
+      const input = parseFloat(
+        document.getElementById('studentTime').value
+      );
       if (isNaN(input) || input <= 0) {
-        alert('Please enter a valid positive number of seconds.');
+        alert('Enter a valid positive number of seconds.');
         return;
       }
       studentTime = input;
-      startTime   = null;
+      startTS     = null;
       document.getElementById('takeoffResult').textContent = '';
-      // ensure the image is loaded before animating
-      if (planeImg.complete) {
-        requestAnimationFrame(animate);
-      } else {
-        planeImg.onload = () => requestAnimationFrame(animate);
-      }
+      requestAnimationFrame(animate);
     }
   </script>
+
 </body>
 </html>
