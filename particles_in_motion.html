@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Physics IV: Particles in Motion in a Glass Sphere Simulation</title>
+<style>
+  body { margin:0; font-family:sans-serif; background:#111; color:#fff; }
+  canvas { display:block; background:#000; }
+
+  /* Title bar */
+  .header {
+    position:absolute; top:0; left:0; width:100%;
+    display:flex; justify-content:space-between; align-items:center;
+    background:#222; padding:10px 20px; box-sizing:border-box;
+  }
+  .header .title {
+    font-size:18px; font-weight:bold; line-height:1.4;
+  }
+  .header img {
+    height:50px; width:auto;
+  }
+
+  .controls { position:absolute; top:80px; left:10px; background:#222; padding:10px; border-radius:6px; }
+  .row { margin:6px 0; }
+  .btns { margin-top:8px; }
+  .stats { display:flex; flex-wrap:wrap; margin-top:10px; }
+  .card { background:#333; padding:6px 10px; margin:4px; border-radius:4px; flex:1; min-width:120px; }
+  .small { font-size:12px; color:#aaa; }
+  .big { font-size:18px; font-weight:bold; }
+</style>
+</head>
+<body>
+<canvas id="sim"></canvas>
+
+<!-- Title bar with logo -->
+<div class="header">
+  <div class="title">
+    Physics IV: Particles in Motion in a Glass Sphere Simulation<br>
+    Dr. Telson
+  </div>
+  <img src="logo.svg" alt="School Logo">
+</div>
+
+<div class="controls">
+  <div class="row">
+    <label>Particles: <span id="nOut">120</span></label>
+    <input id="nRange" type="range" min="30" max="300" step="10" value="120" />
+  </div>
+  <div class="row">
+    <label>Temperature (speed scale): <span id="tempOut">1.00</span>x</label>
+    <input id="tempRange" type="range" min="0.4" max="2.5" step="0.01" value="1.00" />
+  </div>
+  <div class="row">
+    <label>Particle size: <span id="rOut">3.0</span> px</label>
+    <input id="rRange" type="range" min="1" max="6" step="0.1" value="3" />
+  </div>
+  <div class="btns">
+    <button id="pauseBtn">Pause</button>
+    <button id="resetBtn">Reset</button>
+  </div>
+
+  <div class="row stats">
+    <div class="card">
+      <div class="small">Pressure (relative)</div>
+      <div class="big" id="pressureOut">0.000</div>
+    </div>
+    <div class="card">
+      <div class="small">Temperature (relative)</div>
+      <div class="big" id="tempRelOut">0.000</div>
+    </div>
+    <div class="card">
+      <div class="small">Collisions / s</div>
+      <div class="big" id="collRateOut">0.0</div>
+    </div>
+    <div class="card">
+      <div class="small">Avg speed (m/s)</div>
+      <div class="big" id="avgSpeedOut">0.0</div>
+    </div>
+    <div class="card">
+      <div class="small">kT scale</div>
+      <div class="big" id="kTscaleOut">1.00</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById("sim");
+const ctx = canvas.getContext("2d");
+resize();
+window.addEventListener("resize", resize);
+
+let particles = [];
+let paused = false;
+let collisions = 0;
+let lastCollTime = performance.now();
+
+let n = 120, tempScale = 1.0, r = 3;
+const boxSize = 400;
+
+function initParticles() {
+  particles = [];
+  for (let i=0; i<n; i++) {
+    let angle = Math.random()*2*Math.PI;
+    let speed = (Math.random()*2+1)*tempScale;
+    particles.push({
+      x: Math.random()*boxSize,
+      y: Math.random()*boxSize,
+      vx: Math.cos(angle)*speed,
+      vy: Math.sin(angle)*speed
+    });
+  }
+}
+initParticles();
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+
+function update(dt) {
+  let totalSpeed = 0, totalSpeedSq = 0;
+  let wallImpulses = 0;
+
+  for (let p of particles) {
+    p.x += p.vx*dt;
+    p.y += p.vy*dt;
+
+    if (p.x < r) { p.x=r; p.vx*=-1; wallImpulses+=Math.abs(p.vx); collisions++; }
+    if (p.x > boxSize-r) { p.x=boxSize-r; p.vx*=-1; wallImpulses+=Math.abs(p.vx); collisions++; }
+    if (p.y < r) { p.y=r; p.vy*=-1; wallImpulses+=Math.abs(p.vy); collisions++; }
+    if (p.y > boxSize-r) { p.y=boxSize-r; p.vy*=-1; wallImpulses+=Math.abs(p.vy); collisions++; }
+
+    let speed = Math.sqrt(p.vx*p.vx+p.vy*p.vy);
+    totalSpeed += speed;
+    totalSpeedSq += speed*speed;
+  }
+
+  let avgSpeed = totalSpeed/particles.length;
+  let relTemp = (totalSpeedSq/particles.length)/(tempScale*tempScale);
+
+  document.getElementById("avgSpeedOut").textContent = avgSpeed.toFixed(2);
+  document.getElementById("tempRelOut").textContent = relTemp.toFixed(3);
+
+  let now = performance.now();
+  let elapsed = (now-lastCollTime)/1000;
+  if (elapsed>=1) {
+    document.getElementById("collRateOut").textContent = (collisions/elapsed).toFixed(1);
+    collisions=0; lastCollTime=now;
+  }
+
+  document.getElementById("pressureOut").textContent = (wallImpulses/particles.length).toFixed(3);
+}
+
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.save();
+  ctx.translate((canvas.width-boxSize)/2,(canvas.height-boxSize)/2);
+  ctx.strokeStyle="#555";
+  ctx.strokeRect(0,0,boxSize,boxSize);
+  ctx.fillStyle="cyan";
+  for (let p of particles) {
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,r,0,2*Math.PI);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+let lastTime = performance.now();
+function loop() {
+  requestAnimationFrame(loop);
+  let now = performance.now();
+  let dt = (now-lastTime)/16; // ~60fps baseline
+  lastTime = now;
+  if (!paused) update(dt);
+  draw();
+}
+loop();
+
+// Controls
+document.getElementById("nRange").addEventListener("input", e=>{
+  n=parseInt(e.target.value);
+  document.getElementById("nOut").textContent=n;
+  initParticles();
+});
+document.getElementById("tempRange").addEventListener("input", e=>{
+  tempScale=parseFloat(e.target.value);
+  document.getElementById("tempOut").textContent=tempScale.toFixed(2);
+  document.getElementById("kTscaleOut").textContent=tempScale.toFixed(2);
+  initParticles();
+});
+document.getElementById("rRange").addEventListener("input", e=>{
+  r=parseFloat(e.target.value);
+  document.getElementById("rOut").textContent=r.toFixed(1);
+});
+document.getElementById("pauseBtn").addEventListener("click", e=>{
+  paused=!paused;
+  e.target.textContent=paused?"Resume":"Pause";
+});
+document.getElementById("resetBtn").addEventListener("click", ()=>{
+  initParticles();
+});
+</script>
+</body>
+</html>
