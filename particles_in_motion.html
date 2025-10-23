@@ -82,6 +82,9 @@ let lastCollTime = performance.now();
 let paused = false;
 let tempScale = 1.0;
 
+// vertical offset to push container down
+const yOffset = 60;
+
 function initParticles() {
   const n = parseInt(document.getElementById("nRange").value);
   particles = [];
@@ -142,7 +145,8 @@ function update() {
 function draw() {
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.save();
-  ctx.translate((canvas.width-boxSize)/2,(canvas.height-boxSize)/2);
+  // shift container down by yOffset
+  ctx.translate((canvas.width-boxSize)/2,(canvas.height-boxSize)/2 + yOffset);
 
   // container
   ctx.strokeStyle = "#fff";
