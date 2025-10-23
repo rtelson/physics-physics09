@@ -46,7 +46,8 @@
   </div>
   <div class="row">
     <label>Temperature (speed scale): <span id="tempOut">1.00</span>x</label>
-    <input id="tempRange" type="range" min="0.5" max="3" step="0.1" value="1.0" />
+    <!-- min now 0.0 -->
+    <input id="tempRange" type="range" min="0.0" max="3" step="0.1" value="1.0" />
   </div>
   <div class="row">
     <label>Particle size: <span id="rOut">4</span> px</label>
@@ -82,8 +83,8 @@ let lastCollTime = performance.now();
 let paused = false;
 let tempScale = 1.0;
 
-// vertical offset to push container down
-const yOffset = 60;
+// fixed offset from top so container always visible
+const topOffset = 120;
 
 function initParticles() {
   const n = parseInt(document.getElementById("nRange").value);
@@ -145,15 +146,12 @@ function update() {
 function draw() {
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.save();
-  // shift container down by yOffset
-  ctx.translate((canvas.width-boxSize)/2,(canvas.height-boxSize)/2 + yOffset);
+  ctx.translate((canvas.width-boxSize)/2, topOffset);
 
-  // container
   ctx.strokeStyle = "#fff";
   ctx.lineWidth = 3;
   ctx.strokeRect(0,0,boxSize,boxSize);
 
-  // particles
   ctx.fillStyle = "cyan";
   for (let p of particles) {
     ctx.beginPath();
@@ -180,7 +178,16 @@ document.getElementById("tempRange").addEventListener("input", e=>{
   tempScale = parseFloat(e.target.value);
   document.getElementById("tempOut").textContent = tempScale.toFixed(2);
   document.getElementById("kTscaleOut").textContent = tempScale.toFixed(2);
-  initParticles();
+
+  if (tempScale === 0) {
+    for (let p of particles) { p.vx = 0; p.vy = 0; }
+    document.getElementById("avgSpeedOut").textContent = "0.000";
+    document.getElementById("tempRelOut").textContent = "0.000";
+    document.getElementById("pressureOut").textContent = "0.000";
+    document.getElementById("collRateOut").textContent = "0.0";
+  } else {
+    initParticles();
+  }
 });
 
 document.getElementById("rRange").addEventListener("input", e=>{
