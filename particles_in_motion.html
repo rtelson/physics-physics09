@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Physics IV: Particles in Motion in a Glass Sphere Simulation</title>
+<title>Physics IV: Particle Simulation</title>
 <style>
   body { margin:0; font-family:sans-serif; background:#111; color:#fff; }
   canvas { display:block; background:#000; }
@@ -33,7 +33,7 @@
 
 <div class="header">
   <div class="title">
-    Physics IV: Particles in Motion in a Glass Sphere Simulation<br>
+    Physics IV: Particle Simulation<br>
     Dr. Telson
   </div>
   <img src="logo.svg" alt="School Logo">
@@ -45,7 +45,7 @@
     <input id="nRange" type="range" min="10" max="200" step="10" value="50" />
   </div>
   <div class="row">
-    <label>Temperature (speed scale): <span id="tempOut">1.00</span>x</label>
+    <label>Temperature: <span id="tempOut">1.00</span>x</label>
     <input id="tempRange" type="range" min="0.0" max="3" step="0.1" value="1.0" />
   </div>
   <div class="row">
@@ -59,11 +59,14 @@
   </div>
 
   <div class="row stats">
-    <div class="card"><div class="small">Pressure (relative)</div><div class="big" id="pressureOut">0.000</div></div>
-    <div class="card"><div class="small">Temperature (relative)</div><div class="big" id="tempRelOut">0.000</div></div>
-    <div class="card"><div class="small">Collisions / s</div><div class="big" id="collRateOut">0.0</div></div>
+    <div class="card"><div class="small">Pressure</div><div class="big" id="pressureOut">0.000</div></div>
+    <div class="card"><div class="small">Temperature</div><div class="big" id="tempRelOut">0.000</div></div>
+    <div class="card"><div class="small">Collisions/s</div><div class="big" id="collRateOut">0.0</div></div>
     <div class="card"><div class="small">Avg speed</div><div class="big" id="avgSpeedOut">0.0</div></div>
     <div class="card"><div class="small">kT scale</div><div class="big" id="kTscaleOut">1.00</div></div>
+    <div class="card"><div class="small">Translational KE</div><div class="big" id="transKEOut">0.000</div></div>
+    <div class="card"><div class="small">Rotational KE</div><div class="big" id="rotKEOut">0.000</div></div>
+    <div class="card"><div class="small">Vibrational KE</div><div class="big" id="vibKEOut">0.000</div></div>
   </div>
 </div>
 
@@ -81,55 +84,69 @@ let collisions = 0;
 let lastCollTime = performance.now();
 let paused = false;
 let tempScale = 1.0;
-
-// bottom margin for container positioning
-const bottomMargin = 40;
-
-function initParticles() {
-  const n = parseInt(document.getElementById("nRange").value);
-  particles = [];
-  for (let i=0; i<n; i++) {
-    let angle = Math.random()*2*Math.PI;
-    let speed = tempScale * (2 + Math.random()*2);
-    particles.push({
-      x: Math.random()*(boxSize-2*r)+r,
-      y: Math.random()*(boxSize-2*r)+r,
-      vx: Math.cos(angle)*speed,
-      vy: Math.sin(angle)*speed
-    });
-  }
-}
-initParticles();
+let simTime = 0;
 
 function resize() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
 }
 
+function initParticles() {
+  const n = parseInt(document.getElementById("nRange").value);
+  particles = [];
+  for (let i = 0; i < n; i++) {
+    let angle = Math.random() * 2 * Math.PI;
+    let speed = tempScale * (2 + Math.random() * 2);
+    particles.push({
+      x: Math.random() * (boxSize - 2 * r) + r,
+      y: Math.random() * (boxSize - 2 * r) + r,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      omega: (Math.random() - 0.5) * 0.2,
+      theta: Math.random() * 2 * Math.PI,
+      vvib: (Math.random() - 0.5) * 0.5
+    });
+  }
+}
+initParticles();
 function update() {
+  simTime += 0.05;
+
   let totalSpeed = 0, totalSpeedSq = 0;
   let wallImpulses = 0;
+  let totalRotKE = 0;
+  let totalVibKE = 0;
   const n = particles.length;
 
   for (let p of particles) {
     p.x += p.vx;
     p.y += p.vy;
+    p.theta += p.omega;
+
+    totalVibKE += 0.5 * p.vvib * p.vvib;
 
     if (p.x < r) { p.x = r; p.vx *= -1; wallImpulses += Math.abs(p.vx); collisions++; }
     if (p.x > boxSize - r) { p.x = boxSize - r; p.vx *= -1; wallImpulses += Math.abs(p.vx); collisions++; }
     if (p.y < r) { p.y = r; p.vy *= -1; wallImpulses += Math.abs(p.vy); collisions++; }
     if (p.y > boxSize - r) { p.y = boxSize - r; p.vy *= -1; wallImpulses += Math.abs(p.vy); collisions++; }
 
-    let speed = Math.sqrt(p.vx*p.vx + p.vy*p.vy);
+    let speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
     totalSpeed += speed;
-    totalSpeedSq += speed*speed;
+    totalSpeedSq += speed * speed;
+
+    let I = 0.5 * r * r;
+    totalRotKE += 0.5 * I * p.omega * p.omega;
   }
 
   let avgSpeed = totalSpeed / n;
   let relTemp = totalSpeedSq / n;
+  let transKE = relTemp * n;
 
   document.getElementById("avgSpeedOut").textContent = avgSpeed.toFixed(2);
   document.getElementById("tempRelOut").textContent = relTemp.toFixed(2);
+  document.getElementById("transKEOut").textContent = transKE.toFixed(3);
+  document.getElementById("rotKEOut").textContent = totalRotKE.toFixed(3);
+  document.getElementById("vibKEOut").textContent = totalVibKE.toFixed(3);
 
   let now = performance.now();
   let elapsed = (now - lastCollTime) / 1000;
@@ -143,26 +160,62 @@ function update() {
 }
 
 function draw() {
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.save();
-  // anchor container near bottom with bottomMargin
-  const x = (canvas.width - boxSize) / 2;
-  const y = canvas.height - boxSize - bottomMargin;
-  ctx.translate(x, Math.max(0, y)); // prevent off-screen if window is very short
+  ctx.fillStyle = "#111";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // container
+  ctx.save();
+  const x = (canvas.width - boxSize) / 2;
+  const y = (canvas.height - boxSize) / 2;
+  ctx.translate(x, y);
+
   ctx.strokeStyle = "#fff";
   ctx.lineWidth = 3;
-  ctx.strokeRect(0,0,boxSize,boxSize);
+  ctx.strokeRect(0, 0, boxSize, boxSize);
 
-  // particles
-  ctx.fillStyle = "cyan";
+  const vibFreq = 4.5;
+
   for (let p of particles) {
+    let vibScale = 1 + 0.08 * Math.sin(simTime * vibFreq * 2 * Math.PI + p.vvib);
+    ctx.fillStyle = "cyan";
     ctx.beginPath();
-    ctx.arc(p.x,p.y,r,0,2*Math.PI);
+    ctx.arc(p.x, p.y, r * vibScale, 0, 2 * Math.PI);
     ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(p.x + r * 1.5 * Math.cos(p.theta), p.y + r * 1.5 * Math.sin(p.theta));
+    ctx.strokeStyle = "#ff0";
+    ctx.lineWidth = 2;
+    ctx.stroke();
   }
+
   ctx.restore();
+
+  // KE breakdown bar
+  const transKE = parseFloat(document.getElementById("transKEOut").textContent);
+  const rotKE = parseFloat(document.getElementById("rotKEOut").textContent);
+  const vibKE = parseFloat(document.getElementById("vibKEOut").textContent);
+  const totalKE = transKE + rotKE + vibKE;
+
+  const barWidth = 200;
+  const xBar = 20;
+  const yBar = canvas.height - 40;
+
+  let xOffset = xBar;
+
+  ctx.fillStyle = "#0cf"; // translational
+  let wTrans = barWidth * (transKE / totalKE);
+  ctx.fillRect(xOffset, yBar, wTrans, 10);
+  xOffset += wTrans;
+
+  ctx.fillStyle = "#fc0"; // rotational
+  let wRot = barWidth * (rotKE / totalKE);
+  ctx.fillRect(xOffset, yBar, wRot, 10);
+  xOffset += wRot;
+
+  ctx.fillStyle = "#f0f"; // vibrational
+  let wVib = barWidth * (vibKE / totalKE);
+  ctx.fillRect(xOffset, yBar, wVib, 10);
 }
 
 function loop() {
@@ -171,46 +224,47 @@ function loop() {
   draw();
 }
 loop();
-
-// controls
-document.getElementById("nRange").addEventListener("input", e=>{
+document.getElementById("nRange").addEventListener("input", e => {
   document.getElementById("nOut").textContent = e.target.value;
   initParticles();
 });
 
-document.getElementById("tempRange").addEventListener("input", e=>{
+document.getElementById("tempRange").addEventListener("input", e => {
   tempScale = parseFloat(e.target.value);
   document.getElementById("tempOut").textContent = tempScale.toFixed(2);
   document.getElementById("kTscaleOut").textContent = tempScale.toFixed(2);
 
   if (tempScale === 0) {
-    // freeze all particles
     for (let p of particles) {
       p.vx = 0;
       p.vy = 0;
+      p.omega = 0;
+      p.vvib = 0;
     }
-    // force stats to zero
     document.getElementById("avgSpeedOut").textContent = "0.000";
     document.getElementById("tempRelOut").textContent = "0.000";
     document.getElementById("pressureOut").textContent = "0.000";
     document.getElementById("collRateOut").textContent = "0.0";
+    document.getElementById("transKEOut").textContent = "0.000";
+    document.getElementById("rotKEOut").textContent = "0.000";
+    document.getElementById("vibKEOut").textContent = "0.000";
   } else {
     initParticles();
   }
 });
 
-document.getElementById("rRange").addEventListener("input", e=>{
+document.getElementById("rRange").addEventListener("input", e => {
   r = parseInt(e.target.value);
   document.getElementById("rOut").textContent = r;
   initParticles();
 });
 
-document.getElementById("pauseBtn").addEventListener("click", e=>{
+document.getElementById("pauseBtn").addEventListener("click", e => {
   paused = !paused;
   e.target.textContent = paused ? "Resume" : "Pause";
 });
 
-document.getElementById("resetBtn").addEventListener("click", ()=>{
+document.getElementById("resetBtn").addEventListener("click", () => {
   initParticles();
 });
 </script>
