@@ -73,23 +73,23 @@
 <script>
 const canvas = document.getElementById("sim");
 const ctx = canvas.getContext("2d");
+const boxWidth = 800;
+const boxHeight = 600;
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = Math.max(window.innerHeight, boxHeight + 450);
+}
 resize();
 window.addEventListener("resize", resize);
 
 let particles = [];
 let r = 4;
-const boxSize = 400;
-
 let collisions = 0;
 let lastCollTime = performance.now();
 let paused = false;
 let tempScale = 1.0;
 let simTime = 0;
-
-function resize() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
 
 function initParticles() {
   const n = parseInt(document.getElementById("nRange").value);
@@ -98,8 +98,8 @@ function initParticles() {
     let angle = Math.random() * 2 * Math.PI;
     let speed = tempScale * (2 + Math.random() * 2);
     particles.push({
-      x: Math.random() * (boxSize - 2 * r) + r,
-      y: Math.random() * (boxSize - 2 * r) + r,
+      x: Math.random() * (boxWidth - 2 * r) + r,
+      y: Math.random() * (boxHeight - 2 * r) + r,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
       omega: (Math.random() - 0.5) * 0.2,
@@ -126,9 +126,9 @@ function update() {
     totalVibKE += 0.5 * p.vvib * p.vvib;
 
     if (p.x < r) { p.x = r; p.vx *= -1; wallImpulses += Math.abs(p.vx); collisions++; }
-    if (p.x > boxSize - r) { p.x = boxSize - r; p.vx *= -1; wallImpulses += Math.abs(p.vx); collisions++; }
+    if (p.x > boxWidth - r) { p.x = boxWidth - r; p.vx *= -1; wallImpulses += Math.abs(p.vx); collisions++; }
     if (p.y < r) { p.y = r; p.vy *= -1; wallImpulses += Math.abs(p.vy); collisions++; }
-    if (p.y > boxSize - r) { p.y = boxSize - r; p.vy *= -1; wallImpulses += Math.abs(p.vy); collisions++; }
+    if (p.y > boxHeight - r) { p.y = boxHeight - r; p.vy *= -1; wallImpulses += Math.abs(p.vy); collisions++; }
 
     let speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
     totalSpeed += speed;
@@ -164,13 +164,13 @@ function draw() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   ctx.save();
-  const x = (canvas.width - boxSize) / 2;
-  const y = (canvas.height - boxSize) / 2;
+  const x = (canvas.width - boxWidth) / 2;
+  const y = 350;
   ctx.translate(x, y);
 
   ctx.strokeStyle = "#fff";
   ctx.lineWidth = 3;
-  ctx.strokeRect(0, 0, boxSize, boxSize);
+  ctx.strokeRect(0, 0, boxWidth, boxHeight);
 
   const vibFreq = 4.5;
 
